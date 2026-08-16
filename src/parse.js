@@ -35,7 +35,7 @@ export function normalize(body) {
 // "Sip Club Savings | -$3.99" and "Sip Club Savings  -$5.18" both match.
 const SIP_SAVINGS = /Sip\s+Club\s+Savings\s*\|?\s*-\s*\$(\d+\.\d{2})/i;
 
-// "ORDER SUMMARY: #6051716153357744". The second alternative is a hedge for a
+// "ORDER SUMMARY: #9000000000000006". The second alternative is a hedge for a
 // template that drops the "SUMMARY" word; it is not seen in current mail.
 const ORDER_ID = /ORDER\s+SUMMARY\s*:?\s*#\s*(\d+)/i;
 const ORDER_ID_FALLBACK = /\bOrder\s*(?:#|No\.?|Number)\s*:?\s*(\d{6,})/i;

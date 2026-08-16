@@ -32,7 +32,19 @@ async function fetchStatus() {
   const req = new Request(API_URL);
   req.headers = { Authorization: `Bearer ${TOKEN}` };
   req.timeoutInterval = 15;
+
   const data = await req.loadJSON();
+  // loadJSON resolves happily on a 401, whose body is valid JSON. Without
+  // these checks the widget would render `undefined` counts and, worse,
+  // overwrite the last good cache entry with an error payload.
+  const status = req.response?.statusCode;
+  if (status !== undefined && (status < 200 || status >= 300)) {
+    throw new Error(`API returned ${status}`);
+  }
+  if (typeof data?.used !== 'number' || typeof data?.cap !== 'number') {
+    throw new Error('API response missing expected fields');
+  }
+
   CACHE.writeString(CACHE_PATH, JSON.stringify({ data, at: Date.now() }));
   return { data, stale: false };
 }
@@ -94,7 +106,9 @@ function buildWidget({ data: status, stale, cachedMinutes }, family) {
   title.font = Font.mediumSystemFont(10);
   title.textColor = COLORS.dim;
   header.addSpacer();
-  const day = header.addText(`day ${status.day}/30`);
+  // Derived from the payload rather than hardcoded, so the denominator cannot
+  // drift from the server's cycle length.
+  const day = header.addText(`day ${status.day}/${status.day + status.daysLeft}`);
   day.font = Font.mediumSystemFont(10);
   day.textColor = COLORS.dim;
 

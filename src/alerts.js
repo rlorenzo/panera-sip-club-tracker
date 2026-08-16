@@ -12,10 +12,13 @@ async function publish(topicConfig, { title, message, priority = 'default', tags
   };
   if (topicConfig.token) headers.Authorization = `Bearer ${topicConfig.token}`;
 
+  // An unresponsive ntfy endpoint would otherwise hold the poller open until
+  // systemd's TimeoutStartSec kills it, delaying the next scheduled poll.
   const res = await fetch(`${topicConfig.server}/${topicConfig.topic}`, {
     method: 'POST',
     headers,
     body: message,
+    signal: AbortSignal.timeout(topicConfig.timeoutMs ?? 10_000),
   });
   if (!res.ok) throw new Error(`ntfy ${res.status}: ${await res.text()}`);
   return { sent: true };
@@ -43,8 +46,12 @@ export async function maybeAlert(store, status, opts = {}) {
 
   const previous = store.getMeta('last_alert_level', 'ok');
   const rising = RANK[status.level] > RANK[previous];
+  // Gate dispatch here rather than only inside the default publisher, so the
+  // returned list never claims a push that was never made. Transition markers
+  // below are still recorded, so enabling ntfy later does not replay a backlog.
+  const enabled = Boolean(ntfy.enabled);
 
-  if (rising && (status.level === 'warn' || status.level === 'hit')) {
+  if (enabled && rising && (status.level === 'warn' || status.level === 'hit')) {
     await send(ntfy, {
       title: status.level === 'hit' ? 'Sip Club cap reached' : 'Sip Club running low',
       message:
@@ -71,7 +78,7 @@ export async function maybeAlert(store, status, opts = {}) {
     const expiredMs = now - new Date(status.readyAt).getTime();
     // Don't announce cooldowns that lapsed long ago (first run, or a gap in
     // polling) — only ones that expired within the last polling window.
-    if (expiredMs >= 0 && expiredMs <= (opts.freshWindowMs ?? 30 * 60_000)) {
+    if (enabled && expiredMs >= 0 && expiredMs <= (opts.freshWindowMs ?? 30 * 60_000)) {
       await send(ntfy, {
         title: 'Next drink ready',
         message: `Cooldown expired. ${status.remaining} left this period.`,

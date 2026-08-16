@@ -12,17 +12,24 @@ extract cleanly.
 Six confirmation emails in the period, all six matching as redemptions, all six
 with unique parseable order numbers. **Count = 6, as expected.**
 
+> Order numbers and the cafe address below are **synthetic stand-ins** that
+> preserve the shape of the real values (16 digits, monotonically increasing).
+> The real ones were verified locally and deliberately not committed — this is a
+> public repository, and order numbers plus timestamps plus a store location are
+> a movement log. The same substitution is applied throughout `test/fixtures/`.
+> Re-derive the real values any time with `npm run probe`.
+
 | # | `occurred_at` (UTC) | `order_id` | Item | Savings | Order total |
 |---|---|---|---|---|---|
-| 1 | 2026-08-11T22:24:31Z | 6051716151604995 | Diet Pepsi | -$3.99 | $0.00 |
-| 2 | 2026-08-13T15:29:08Z | 6051716152358773 | Diet Pepsi + Asiago Bagel | -$5.18 | $1.00 |
-| 3 | 2026-08-13T22:23:02Z | 6051716152641852 | Cafe Blend Iced Coffee | -$4.79 | $0.00 |
-| 4 | 2026-08-14T15:20:31Z | 6051716152875314 | Hot Tea | -$3.39 | $0.00 |
-| 5 | 2026-08-14T22:17:10Z | 6051716153149333 | Cafe Blend Iced Coffee | -$4.79 | $0.00 |
-| 6 | 2026-08-15T16:01:55Z | 6051716153357744 | Diet Pepsi | -$3.99 | $0.00 |
+| 1 | 2026-08-11T22:24:31Z | 9000000000000001 | Diet Pepsi | -$3.99 | $0.00 |
+| 2 | 2026-08-13T15:29:08Z | 9000000000000002 | Diet Pepsi + Asiago Bagel | -$5.18 | $1.00 |
+| 3 | 2026-08-13T22:23:02Z | 9000000000000003 | Cafe Blend Iced Coffee | -$4.79 | $0.00 |
+| 4 | 2026-08-14T15:20:31Z | 9000000000000004 | Hot Tea | -$3.39 | $0.00 |
+| 5 | 2026-08-14T22:17:10Z | 9000000000000005 | Cafe Blend Iced Coffee | -$4.79 | $0.00 |
+| 6 | 2026-08-15T16:01:55Z | 9000000000000006 | Diet Pepsi | -$3.99 | $0.00 |
 
-All six were fulfilled at cafe #606336 (8391 Pine Ave, Chino CA), via a mix of
-Rapid Pick-Up and Drive-Thru.
+All six were fulfilled at a single cafe, via a mix of Rapid Pick-Up and
+Drive-Thru.
 
 ## Corrections the real mail forced
 
@@ -30,8 +37,8 @@ Rapid Pick-Up and Drive-Thru.
 
 The spec proposed `/Order\s*#\s*(\d+)/i`. The actual line is:
 
-```
-ORDER SUMMARY: #6051716153357744
+```text
+ORDER SUMMARY: #9000000000000006
 ```
 
 `SUMMARY:` sits between the word and the hash, so `\s*` cannot bridge it. The
@@ -83,7 +90,7 @@ confirm before trusting the count in production.
 ## Incidental findings
 
 - **Every order really does generate two emails**, as the spec said: a
-  "We've received your … order, Rex!" confirmation and a "Woo! 🎉 Your … order is
+  "We've received your … order, Sam!" confirmation and a "Woo! 🎉 Your … order is
   READY!" pickup notice, typically 40–90 seconds apart. Only the confirmation is
   ingested, filtered on subject.
 - **Even if a pickup notice leaked through, it would be harmless.** It carries

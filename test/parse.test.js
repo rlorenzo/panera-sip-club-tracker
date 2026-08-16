@@ -38,8 +38,8 @@ test('parsing is identical for plain-text and HTML-derived bodies', () => {
 test('order numbers come off the ORDER SUMMARY line', () => {
   // The shape the spec assumed, /Order\s*#(\d+)/, does not match this line;
   // "SUMMARY:" sits between the word and the hash.
-  assert.equal(extractOrderId('| ORDER SUMMARY: #6051716153357744 |'), '6051716153357744');
-  assert.equal(extractOrderId('ORDER SUMMARY:#6051716153357744'), '6051716153357744');
+  assert.equal(extractOrderId('| ORDER SUMMARY: #9000000000000006 |'), '9000000000000006');
+  assert.equal(extractOrderId('ORDER SUMMARY:#9000000000000006'), '9000000000000006');
   assert.equal(extractOrderId('no order here'), null);
 });
 
@@ -49,9 +49,9 @@ test('the pickup notice is rejected on subject alone', () => {
 });
 
 test('confirmation subjects match across order types and apostrophe styles', () => {
-  assert.ok(isConfirmationSubject("We've received your Rapid Pick-Up order, Rex!"));
-  assert.ok(isConfirmationSubject("We've received your Drive-Thru Pick-Up order, Rex!"));
-  assert.ok(isConfirmationSubject('We’ve received your Rapid Pick-Up order, Rex!'));
+  assert.ok(isConfirmationSubject("We've received your Rapid Pick-Up order, Sam!"));
+  assert.ok(isConfirmationSubject("We've received your Drive-Thru Pick-Up order, Sam!"));
+  assert.ok(isConfirmationSubject('We’ve received your Rapid Pick-Up order, Sam!'));
 });
 
 test('a food-only order is not a redemption', () => {
@@ -68,11 +68,11 @@ test('occurred_at is normalized to UTC from the message date', () => {
 
 test('cafe is taken from the fulfilling store line', () => {
   const parsed = parseMessage(asMessage(PERIOD_REDEMPTIONS[0]));
-  assert.equal(parsed.cafe, '8391 Pine Ave Chino, CA 91708');
+  assert.equal(parsed.cafe, '1200 Example Ave Springfield, IL 62704');
 });
 
 test('cafe falls back to the store number when no address is present', () => {
-  assert.equal(extractCafe('| CAFE #606336 |'), 'CAFE #606336');
+  assert.equal(extractCafe('| CAFE #900001 |'), 'CAFE #900001');
   assert.equal(extractCafe('nothing useful'), null);
 });
 
@@ -89,7 +89,7 @@ test('savings with nothing comped is counted but flagged for review', () => {
   // Counting it keeps the number from running silently low; the flag is what
   // surfaces it for reconciliation.
   const body = [
-    '| ORDER SUMMARY: #6051716159999999 |',
+    '| ORDER SUMMARY: #9000000000000008 |',
     '| Asiago Bagel | $1.00 $2.19 |',
     '| Subtotal | $2.19 |',
     '| Sip Club Savings | -$1.19 |',
@@ -117,7 +117,7 @@ test('a confirmation with no order number is dropped rather than guessed at', ()
     cafe: 'x',
   }).replace(/ORDER SUMMARY: #1/, 'ORDER SUMMARY:');
   assert.equal(
-    parseMessage({ subject: "We've received your order, Rex!", date: '2026-08-15T16:01:55Z', body }),
+    parseMessage({ subject: "We've received your order, Sam!", date: '2026-08-15T16:01:55Z', body }),
     null,
   );
 });

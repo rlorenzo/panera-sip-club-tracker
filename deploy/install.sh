@@ -16,6 +16,9 @@ APP_DIR=/opt/sip-ledger
 ETC_DIR=/etc/sip-ledger
 STATE_DIR=/var/lib/sip-ledger
 NODE_MAJOR=24
+# Pinned from https://github.com/nodesource/distributions. Verify independently
+# before trusting it; a wrong value here fails closed, which is the point.
+NODESOURCE_FPR="6F71F525282841EEDAF851B42F59B5F99B1BE0B4"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -26,8 +29,10 @@ warn() { printf '\033[33m    %s\033[0m\n' "$*"; }
 say "Installing base packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
+# sqlite3 is here for the documented backup procedure, not for the app —
+# better-sqlite3 is self-contained.
 apt-get install -y -qq curl ca-certificates gnupg debian-keyring debian-archive-keyring \
-  apt-transport-https rsync jq >/dev/null
+  apt-transport-https rsync jq sqlite3 openssl >/dev/null
 
 say "Ensuring Node ${NODE_MAJOR}"
 current_major=0
@@ -38,7 +43,28 @@ if [ "$current_major" -lt "$NODE_MAJOR" ]; then
   # better-sqlite3 v13 ships prebuilt binaries for linux-x64 and linux-arm64,
   # so no compiler toolchain is needed here — which also means a 1 GB droplet
   # will not run out of memory during install.
-  curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - >/dev/null
+  # Configure the signed APT repository directly rather than piping a remote
+  # script into a root shell: setup_NN.x runs whatever the endpoint returns,
+  # with no signature check, as root.
+  install -d -m 0755 /usr/share/keyrings
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+    | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
+  chmod 0644 /usr/share/keyrings/nodesource.gpg
+
+  fingerprint="$(gpg --show-keys --with-colons /usr/share/keyrings/nodesource.gpg \
+    | awk -F: '/^fpr:/ {print $10; exit}')"
+  echo "    NodeSource signing key ${fingerprint}"
+  if [ "$fingerprint" != "$NODESOURCE_FPR" ]; then
+    echo "NodeSource signing key fingerprint does not match the pinned value."
+    echo "  expected ${NODESOURCE_FPR}"
+    echo "  got      ${fingerprint}"
+    echo "Refusing to install. Verify against https://github.com/nodesource/distributions"
+    exit 1
+  fi
+
+  echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" \
+    > /etc/apt/sources.list.d/nodesource.list
+  apt-get update -qq
   apt-get install -y -qq nodejs >/dev/null
   hash -r  # forget the cached path to the old node
 fi
@@ -119,8 +145,15 @@ sed "s|sip\.rexlorenzo\.com|${SIP_DOMAIN}|" \
 if ! grep -q '^import /etc/caddy/conf.d/\*\.caddyfile' /etc/caddy/Caddyfile 2>/dev/null; then
   printf '\nimport /etc/caddy/conf.d/*.caddyfile\n' >> /etc/caddy/Caddyfile
 fi
-caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 \
-  || warn "caddy validate failed — check /etc/caddy/Caddyfile before reloading"
+# Abort before touching a running Caddy. A restart with an invalid config stops
+# the working instance and then fails to start it again, taking down TLS for
+# anything else on the box.
+if ! caddy validate --config /etc/caddy/Caddyfile; then
+  echo
+  echo "caddy validate failed. Not reloading — the current Caddy is left running."
+  echo "Inspect /etc/caddy/conf.d/sip.caddyfile and /etc/caddy/Caddyfile, then re-run."
+  exit 1
+fi
 
 say "Firewall"
 if command -v ufw >/dev/null 2>&1; then

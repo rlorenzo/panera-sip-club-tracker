@@ -94,7 +94,7 @@ droplet — no `build-essential`, and no OOM on a 1 GB box.
 
 ```json
 {
-  "used": 6, "cap": 30, "remaining": 24,
+  "used": 6, "needsReview": 0, "cap": 30, "remaining": 24,
   "cycleStart": "2026-08-11", "cycleEnd": "2026-09-09",
   "day": 5, "daysLeft": 25, "pace": 36,
   "lastAt": "2026-08-15T16:01:55Z", "readyAt": "2026-08-15T18:01:55Z",
@@ -105,6 +105,11 @@ droplet — no `build-essential`, and no OOM on a 1 GB box.
 
 `level` ∈ `ok | pace | warn | hit` — `hit` at `used >= 30`, `warn` at
 `used >= 27`, `pace` when the projection exceeds 31, `ok` otherwise.
+
+`needsReview` counts redemptions in the period where Sip Club savings applied
+but nothing was fully comped — the shape a food-only discount would take. They
+are included in `used`; the tally is there to be reconciled, not to be
+subtracted.
 
 - `POST /api/sip/manual` `{"occurredAt": "<ISO>"}` — inserts with a synthetic
   `manual-<epoch-ms>` id. Idempotent for a given instant.
@@ -179,7 +184,7 @@ Still live, and worth re-reading before spending another evening on this:
 npm test
 ```
 
-45 tests: cycle boundaries (exact anchor, last millisecond, first millisecond of
+52 tests: cycle boundaries (exact anchor, last millisecond, first millisecond of
 the next period, contiguity), parsing against fixtures derived from all six
 verified emails in both body shapes, store idempotency and interrupted-run
 equivalence, the full API surface, and alert transition behaviour.

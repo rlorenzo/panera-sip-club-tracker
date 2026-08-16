@@ -35,9 +35,13 @@ export async function pollOnce(store, opts = {}) {
   const stats = { seen: 0, subjectMatched: 0, redemptions: 0, inserted: 0, skipped: 0, review: 0 };
   const rows = [];
 
-  await client.connect();
-  const lock = await client.getMailboxLock(imapConfig.mailbox);
+  // connect() and getMailboxLock() live inside the try: if the lock fails
+  // after a successful connect, an outside-the-try acquisition would skip the
+  // finally and leak the IMAP connection until the server times it out.
+  let lock;
   try {
+    await client.connect();
+    lock = await client.getMailboxLock(imapConfig.mailbox);
     const uids = await client.search(
       { from: opts.sender ?? config.sender, since: cycle.start },
       { uid: true },
@@ -60,7 +64,10 @@ export async function pollOnce(store, opts = {}) {
           const mail = await simpleParser(msg.source);
           const parsed = parseMessage({
             subject: mail.subject,
-            date: mail.date ?? new Date(),
+            // Passed through unchanged. Substituting the poll time here would
+            // defeat the parser's date check and file a message with no usable
+            // timestamp into whatever period happens to be current.
+            date: mail.date,
             // Prefer the real text/plain part; fall back to the HTML-derived
             // text mailparser synthesizes when the part is absent.
             body: mail.text || mail.html || '',
@@ -86,13 +93,14 @@ export async function pollOnce(store, opts = {}) {
             occurredAt: parsed.occurredAt,
             cafe: parsed.cafe,
             source: 'email',
+            needsReview: parsed.needsReview,
           });
           store.setMeta('last_uid', String(msg.uid));
         }
       }
     }
   } finally {
-    lock.release();
+    lock?.release();
     await client.logout().catch(() => {});
   }
 
@@ -118,5 +126,4 @@ async function main() {
   }
 }
 
-const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
-if (isMain) await main();
+if (import.meta.main) await main();

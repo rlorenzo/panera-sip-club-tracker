@@ -66,7 +66,17 @@ test('cooling flips to false once the two-hour window has passed', async (t) => 
 test('requests without a valid bearer token are rejected', async (t) => {
   const app = server(t, seeded());
 
-  for (const headers of [{}, { authorization: 'Bearer wrong' }, { authorization: TOKEN }]) {
+  const sameLengthWrong = 'X'.repeat(TOKEN.length);
+  assert.equal(sameLengthWrong.length, TOKEN.length);
+
+  for (const headers of [
+    {},
+    { authorization: 'Bearer wrong' },
+    { authorization: TOKEN },
+    // Same length as the real token, so this is the only case that reaches
+    // timingSafeEqual with mismatched content.
+    { authorization: `Bearer ${sameLengthWrong}` },
+  ]) {
     const res = await app.inject({ method: 'GET', url: '/api/sip', headers });
     assert.equal(res.statusCode, 401);
   }
@@ -158,7 +168,7 @@ test('manual entries can be deleted; email-sourced ones cannot', async (t) => {
   // report a deletion that will not stick.
   const refused = await app.inject({
     method: 'DELETE',
-    url: '/api/sip/manual/6051716151604995',
+    url: '/api/sip/manual/9000000000000001',
     headers: auth,
   });
   assert.equal(refused.statusCode, 400);
@@ -183,4 +193,68 @@ test('an empty database reports zero rather than failing', async (t) => {
   assert.equal(body.cooling, false);
   assert.equal(body.level, 'ok');
   assert.equal(body.staleMinutes, null, 'never polled is not the same as fresh');
+});
+
+test('a non-string occurredAt is rejected by the route schema', async (t) => {
+  const app = server(t, seeded());
+
+  // new Date(1) and new Date([2026]) are both valid Dates, so without a schema
+  // these would store a redemption at an arbitrary instant.
+  for (const payload of [{ occurredAt: 1 }, { occurredAt: [2026] }, { occurredAt: {} }]) {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/sip/manual',
+      headers: auth,
+      payload,
+    });
+    assert.equal(res.statusCode, 400, JSON.stringify(payload));
+  }
+});
+
+test('a non-scalar cafe is rejected rather than reaching SQLite as a 500', async (t) => {
+  const app = server(t, seeded());
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/sip/manual',
+    headers: auth,
+    payload: { occurredAt: '2026-08-15T18:30:00Z', cafe: { name: 'nope' } },
+  });
+  assert.equal(res.statusCode, 400);
+});
+
+test('a future occurredAt is rejected so cooling cannot be pinned open', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-08-15T19:00:00Z') });
+  const app = server(t, seeded());
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/sip/manual',
+    headers: auth,
+    payload: { occurredAt: '2027-01-01T00:00:00Z' },
+  });
+  assert.equal(res.statusCode, 400);
+});
+
+test('an unknown field is rejected rather than silently ignored', async (t) => {
+  const app = server(t, seeded());
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/sip/manual',
+    headers: auth,
+    payload: { occurredAt: '2026-08-15T18:30:00Z', source: 'email' },
+  });
+  assert.equal(res.statusCode, 400);
+});
+
+test('building a server with a weak or empty token fails fast', () => {
+  const store = makeStore(openDb(':memory:'));
+  for (const bad of ['', 'short', undefined]) {
+    assert.throws(
+      () => buildServer(store, { token: bad, anchorDate: ANCHOR }),
+      /at least 16 characters|missing required env var/,
+    );
+  }
+  store.close();
 });
