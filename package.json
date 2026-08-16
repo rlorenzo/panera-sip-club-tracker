@@ -1,0 +1,23 @@
+{
+  "name": "sip-ledger",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal Panera Sip Club redemption tracker",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "poll": "node src/poller.js",
+    "api": "node src/api.js",
+    "probe": "node scripts/probe.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^10.2.2",
+    "better-sqlite3": "^13.0.3",
+    "fastify": "^5.2.1",
+    "imapflow": "^1.0.188",
+    "mailparser": "^3.7.2"
+  }
+}

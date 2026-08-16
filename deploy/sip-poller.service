@@ -1,0 +1,37 @@
+[Unit]
+Description=Sip Ledger mailbox poller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=sip
+Group=sip
+WorkingDirectory=/opt/sip-ledger
+EnvironmentFile=/etc/sip-ledger/env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node src/poller.js
+
+# A hung IMAP connection must not wedge the timer forever.
+TimeoutStartSec=180
+
+# Shares the API's state directory; SQLite runs in WAL mode so the two
+# processes can touch the same file without blocking each other.
+StateDirectory=sip-ledger
+StateDirectoryMode=0750
+
+# The poller reads mail and writes one SQLite file; it needs nothing else.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+# AF_UNIX is required for DNS via systemd-resolved; without it the IMAP
+# hostname never resolves.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
