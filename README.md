@@ -72,10 +72,15 @@ non-zero if order numbers fail to parse, collide, or the total misses
 Ubuntu 24.04, $6/mo basic droplet is enough. Point `sip.<domain>` at it first —
 Caddy requests a certificate on first start.
 
+Site values live in [`deploy/deploy.conf`](deploy/deploy.conf) — domain, port,
+Node major, the pinned NodeSource key fingerprint, paths, service user. Edit it
+once, or override any of them per run from the environment:
+
 ```sh
 git clone https://github.com/rlorenzo/panera-sip-club-tracker.git
 cd panera-sip-club-tracker
-sudo SIP_DOMAIN=sip.example.com ./deploy/install.sh
+$EDITOR deploy/deploy.conf            # set SIP_DOMAIN
+sudo ./deploy/install.sh              # or: sudo SIP_DOMAIN=… ./deploy/install.sh
 ```
 
 Idempotent — re-run after a `git pull` to redeploy; it never overwrites

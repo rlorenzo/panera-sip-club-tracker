@@ -37,8 +37,19 @@ once Caddy is resident too.
 ssh root@<droplet-ip>
 git clone https://github.com/rlorenzo/panera-sip-club-tracker.git
 cd panera-sip-club-tracker
-sudo SIP_DOMAIN=sip.example.com ./deploy/install.sh
+$EDITOR deploy/deploy.conf     # SIP_DOMAIN at minimum
+sudo ./deploy/install.sh
 ```
+
+All site-specific values live in `deploy/deploy.conf`: domain, loopback port,
+Node major version, the pinned NodeSource signing-key fingerprint, install
+paths, and the service user. Each is written `${VAR:-default}`, so an
+environment variable overrides it for a single run without editing the file.
+
+**Verify `NODESOURCE_FPR` yourself** against
+[nodesource/distributions](https://github.com/nodesource/distributions) before
+the first install. A pinned fingerprint nobody checked is trust-on-first-use
+with extra steps — though a wrong value fails closed rather than open.
 
 The script is idempotent — re-run it after a `git pull` to redeploy. It will not
 overwrite `/etc/sip-ledger/env` once it exists, so your credentials survive.

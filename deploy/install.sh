@@ -11,15 +11,15 @@
 
 set -euo pipefail
 
-SIP_DOMAIN="${SIP_DOMAIN:-sip.example.com}"
-APP_DIR=/opt/sip-ledger
-ETC_DIR=/etc/sip-ledger
-STATE_DIR=/var/lib/sip-ledger
-NODE_MAJOR=24
-# Pinned from https://github.com/nodesource/distributions. Verify independently
-# before trusting it; a wrong value here fails closed, which is the point.
-NODESOURCE_FPR="6F71F525282841EEDAF851B42F59B5F99B1BE0B4"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Site values live in deploy.conf so this script holds no hostnames or pinned
+# keys of its own. Environment variables still win, because each entry there is
+# written as ${VAR:-default}.
+CONF="${SIP_DEPLOY_CONF:-${SRC_DIR}/deploy/deploy.conf}"
+[ -f "$CONF" ] || { echo "missing deploy config: $CONF"; exit 1; }
+# shellcheck source=deploy.conf
+. "$CONF"
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m    %s\033[0m\n' "$*"; }
@@ -80,9 +80,9 @@ EOF
   exit 1
 fi
 
-say "Creating the sip service user"
-if ! id -u sip >/dev/null 2>&1; then
-  useradd --system --home-dir "$STATE_DIR" --shell /usr/sbin/nologin sip
+say "Creating the ${SERVICE_USER} service user"
+if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
+  useradd --system --home-dir "$STATE_DIR" --shell /usr/sbin/nologin "$SERVICE_USER"
 fi
 
 say "Syncing the application to ${APP_DIR}"
@@ -102,16 +102,17 @@ chown -R root:root "$APP_DIR"
 say "Preparing ${ETC_DIR}/env"
 mkdir -p "$ETC_DIR"
 if [ ! -f "$ETC_DIR/env" ]; then
-  install -m 0640 -o root -g sip "$SRC_DIR/deploy/env.example" "$ETC_DIR/env"
+  install -m 0640 -o root -g "$SERVICE_USER" "$SRC_DIR/deploy/env.example" "$ETC_DIR/env"
   token="$(openssl rand -hex 32)"
   sed -i "s|^SIP_TOKEN=.*|SIP_TOKEN=${token}|" "$ETC_DIR/env"
   sed -i "s|^SIP_DB_PATH=.*|SIP_DB_PATH=${STATE_DIR}/sip.db|" "$ETC_DIR/env"
+  sed -i "s|^SIP_PORT=.*|SIP_PORT=${SIP_PORT}|" "$ETC_DIR/env"
   NEW_ENV=1
 else
   NEW_ENV=0
   echo "    keeping the existing env file"
 fi
-chown root:sip "$ETC_DIR/env"
+chown "root:$SERVICE_USER" "$ETC_DIR/env"
 chmod 0640 "$ETC_DIR/env"
 
 say "Installing systemd units"
@@ -138,7 +139,7 @@ fi
 
 say "Configuring the ${SIP_DOMAIN} vhost"
 mkdir -p /etc/caddy/conf.d
-sed "s|sip\.rexlorenzo\.com|${SIP_DOMAIN}|" \
+sed -e "s|sip\.example\.com|${SIP_DOMAIN}|" -e "s|127\.0\.0\.1:8412|127.0.0.1:${SIP_PORT}|" \
   "$SRC_DIR/deploy/Caddyfile.snippet" > /etc/caddy/conf.d/sip.caddyfile
 # The stock Caddyfile has no import line; add one rather than appending the
 # site block, so re-running this script cannot duplicate it.
@@ -172,7 +173,7 @@ systemctl enable --now sip-poller.timer >/dev/null
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
 
 sleep 2
-if curl -fsS --max-time 5 http://127.0.0.1:8412/health >/dev/null; then
+if curl -fsS --max-time 5 "http://127.0.0.1:${SIP_PORT}/health" >/dev/null; then
   echo "    API healthy on loopback"
 else
   warn "API not answering — journalctl -u sip-api -n 50"
