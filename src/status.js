@@ -12,6 +12,9 @@ export function buildStatus(store, anchorDate, now = Date.now()) {
   const endISO = cycle.endExclusive.toISOString();
 
   const used = store.countBetween(startISO, endISO);
+  // Counted, but flagged: savings applied with nothing fully comped. Surfaced
+  // so the operator can reconcile without reading journald.
+  const needsReview = store.countReviewBetween(startISO, endISO);
   const last = store.latest();
   const lastMs = last ? new Date(last.occurredAt ?? last.occurred_at).getTime() : null;
 
@@ -27,6 +30,7 @@ export function buildStatus(store, anchorDate, now = Date.now()) {
 
   return {
     used,
+    needsReview,
     cap: CAP,
     remaining: Math.max(0, CAP - used),
     cycleStart: isoDate(cycle.start),

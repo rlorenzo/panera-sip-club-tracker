@@ -8,7 +8,11 @@ CREATE TABLE IF NOT EXISTS redemptions (
   occurred_at TEXT NOT NULL,
   cafe        TEXT,
   source      TEXT NOT NULL,
-  created_at  TEXT NOT NULL
+  created_at  TEXT NOT NULL,
+  -- Sip Club savings applied with nothing fully comped: possibly a food-only
+  -- discount. Recorded so it survives log rotation and can be reconciled, but
+  -- it does not affect the count. See docs/phase0-verification.md.
+  needs_review INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_redemptions_occurred_at
@@ -40,8 +44,9 @@ export function makeStore(db) {
     // Ingestion is idempotent by order_id, so re-polling a window that
     // overlaps rows we already have is a no-op rather than a duplicate.
     insert: db.prepare(`
-      INSERT INTO redemptions (order_id, occurred_at, cafe, source, created_at)
-      VALUES (@orderId, @occurredAt, @cafe, @source, @createdAt)
+      INSERT INTO redemptions
+        (order_id, occurred_at, cafe, source, created_at, needs_review)
+      VALUES (@orderId, @occurredAt, @cafe, @source, @createdAt, @needsReview)
       ON CONFLICT(order_id) DO NOTHING
     `),
     deleteById: db.prepare('DELETE FROM redemptions WHERE order_id = ?'),
@@ -49,6 +54,10 @@ export function makeStore(db) {
     countBetween: db.prepare(`
       SELECT COUNT(*) AS n FROM redemptions
       WHERE occurred_at >= ? AND occurred_at < ?
+    `),
+    countReviewBetween: db.prepare(`
+      SELECT COUNT(*) AS n FROM redemptions
+      WHERE occurred_at >= ? AND occurred_at < ? AND needs_review = 1
     `),
     listBetween: db.prepare(`
       SELECT * FROM redemptions
@@ -69,13 +78,14 @@ export function makeStore(db) {
     db,
 
     /** @returns {boolean} true when the row was new. */
-    insert({ orderId, occurredAt, cafe = null, source = 'email' }) {
+    insert({ orderId, occurredAt, cafe = null, source = 'email', needsReview = false }) {
       const info = stmts.insert.run({
         orderId,
         occurredAt,
         cafe,
         source,
         createdAt: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        needsReview: needsReview ? 1 : 0,
       });
       return info.changes > 0;
     },
@@ -99,6 +109,10 @@ export function makeStore(db) {
 
     countBetween(startISO, endISO) {
       return stmts.countBetween.get(startISO, endISO).n;
+    },
+
+    countReviewBetween(startISO, endISO) {
+      return stmts.countReviewBetween.get(startISO, endISO).n;
     },
 
     listBetween(startISO, endISO) {

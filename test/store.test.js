@@ -70,3 +70,17 @@ test('meta round-trips and overwrites in place', (t) => {
   store.setMeta('last_poll_at', '2026-08-15T17:50:00Z');
   assert.equal(store.getMeta('last_poll_at'), '2026-08-15T17:50:00Z');
 });
+
+test('the review flag is persisted and counted separately from the total', (t) => {
+  const store = freshStore(t);
+  store.insert({ orderId: 'clean', occurredAt: '2026-08-12T10:00:00Z' });
+  store.insert({ orderId: 'flagged', occurredAt: '2026-08-13T10:00:00Z', needsReview: true });
+
+  const window = ['2026-08-11T00:00:00Z', '2026-09-10T00:00:00Z'];
+  // Flagged rows still count: undercounting is the worse failure. The separate
+  // tally is what makes them reconcilable.
+  assert.equal(store.countBetween(...window), 2);
+  assert.equal(store.countReviewBetween(...window), 1);
+  assert.equal(store.get('flagged').needs_review, 1);
+  assert.equal(store.get('clean').needs_review, 0);
+});

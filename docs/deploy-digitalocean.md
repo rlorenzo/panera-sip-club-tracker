@@ -136,6 +136,8 @@ backups (+20%) also cover it.
 journalctl -u sip-poller -f              # structured JSON, one line per run
 journalctl -u sip-api -f
 journalctl -u sip-poller | grep review_needed   # savings with nothing comped
+sqlite3 /var/lib/sip-ledger/sip.db \
+  'SELECT order_id, occurred_at FROM redemptions WHERE needs_review = 1'
 ```
 
 `review_needed` lines are the ones to actually read: they mark orders where a

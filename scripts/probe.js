@@ -33,14 +33,17 @@ console.log(`anchor      ${config.anchorDate}`);
 console.log(`period      ${isoDate(cycle.start)} → ${isoDate(cycle.end)} (day ${cycle.day})`);
 console.log(`searching   FROM ${config.sender} SINCE ${isoDate(since)}\n`);
 
-await client.connect();
-const lock = await client.getMailboxLock(config.imap.mailbox);
-
 const found = [];
 let confirmations = 0;
 let notices = 0;
 
+// connect() and the lock sit inside the try so a lock failure after a
+// successful connect still releases the connection in the finally.
+let lock;
 try {
+  await client.connect();
+  lock = await client.getMailboxLock(config.imap.mailbox);
+
   const uids = await client.search({ from: config.sender, since }, { uid: true });
   console.log(`${uids.length} message(s) from ${config.sender}\n`);
 
@@ -70,7 +73,7 @@ try {
     }
   }
 } finally {
-  lock.release();
+  lock?.release();
   await client.logout().catch(() => {});
 }
 

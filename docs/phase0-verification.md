@@ -12,6 +12,13 @@ extract cleanly.
 Six confirmation emails in the period, all six matching as redemptions, all six
 with unique parseable order numbers. **Count = 6, as expected.**
 
+> Order numbers and the cafe address below are **synthetic stand-ins** that
+> preserve the shape of the real values (16 digits, monotonically increasing).
+> The real ones were verified locally and deliberately not committed — this is a
+> public repository, and order numbers plus timestamps plus a store location are
+> a movement log. The same substitution is applied throughout `test/fixtures/`.
+> Re-derive the real values any time with `npm run probe`.
+
 | # | `occurred_at` (UTC) | `order_id` | Item | Savings | Order total |
 |---|---|---|---|---|---|
 | 1 | 2026-08-11T22:24:31Z | 9000000000000001 | Diet Pepsi | -$3.99 | $0.00 |
@@ -21,8 +28,8 @@ with unique parseable order numbers. **Count = 6, as expected.**
 | 5 | 2026-08-14T22:17:10Z | 9000000000000005 | Cafe Blend Iced Coffee | -$4.79 | $0.00 |
 | 6 | 2026-08-15T16:01:55Z | 9000000000000006 | Diet Pepsi | -$3.99 | $0.00 |
 
-All six were fulfilled at cafe #900001 (1200 Example Ave, Springfield IL), via a mix of
-Rapid Pick-Up and Drive-Thru.
+All six were fulfilled at a single cafe, via a mix of Rapid Pick-Up and
+Drive-Thru.
 
 ## Corrections the real mail forced
 
@@ -30,7 +37,7 @@ Rapid Pick-Up and Drive-Thru.
 
 The spec proposed `/Order\s*#\s*(\d+)/i`. The actual line is:
 
-```
+```text
 ORDER SUMMARY: #9000000000000006
 ```
 

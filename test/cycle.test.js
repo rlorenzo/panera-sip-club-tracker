@@ -73,3 +73,13 @@ test('levels escalate on count first and projection second', () => {
   assert.equal(levelFor(26, 26), 'ok');
   assert.equal(levelFor(5, 5), 'ok');
 });
+
+test('an anchor that Date silently normalizes is rejected', () => {
+  // new Date('2026-02-30T00:00:00Z') is not NaN — it rolls over to 2026-03-02,
+  // which would shift every period boundary by two days without an error.
+  assert.throws(() => cycleFor('2026-02-30'), /bad anchor date/);
+  assert.throws(() => cycleFor('2026-13-01'), /bad anchor date/);
+  assert.throws(() => cycleFor('2025-02-29'), /bad anchor date/);
+  // A real leap day still works.
+  assert.equal(isoDate(cycleFor('2028-02-29', at('2028-02-29T12:00:00Z')).start), '2028-02-29');
+});

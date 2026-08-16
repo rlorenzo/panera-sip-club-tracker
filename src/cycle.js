@@ -16,6 +16,12 @@ export const COOLDOWN_MS = 2 * 60 * 60 * 1000;
 export function cycleFor(anchorISO, now = Date.now()) {
   const anchor = new Date(anchorISO + 'T00:00:00Z').getTime();
   if (Number.isNaN(anchor)) throw new Error(`bad anchor date: ${anchorISO}`);
+  // Date() silently normalizes overflow — '2026-02-30' becomes 2026-03-02,
+  // which would shift every period boundary by two days with no error. Compare
+  // the round-trip to catch a typo in the anchor rather than acting on it.
+  if (new Date(anchor).toISOString().slice(0, 10) !== anchorISO) {
+    throw new Error(`bad anchor date: ${anchorISO}`);
+  }
 
   const idx = Math.max(0, Math.floor((now - anchor) / DAY / CYCLE_DAYS));
   const start = anchor + idx * CYCLE_DAYS * DAY;

@@ -150,11 +150,17 @@ test('publishing is skipped entirely when no topic is configured', async (t) => 
   const now = new Date('2026-09-05T12:00:00Z').getTime();
   const rec = recorder();
 
-  await maybeAlert(store, buildStatus(store, ANCHOR, now), {
+  const sent = await maybeAlert(store, buildStatus(store, ANCHOR, now), {
     ntfy: { enabled: false },
     publish: rec.publish,
     now,
   });
+
+  // The publisher must not run at all, and the return value must not claim a
+  // push that never happened.
+  assert.deepEqual(sent, []);
+  assert.equal(rec.sent.length, 0);
+
   // The transition is still recorded, so enabling ntfy later does not replay
   // a backlog of stale alerts.
   assert.equal(store.getMeta('last_alert_level'), 'warn');
