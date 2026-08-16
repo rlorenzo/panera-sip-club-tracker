@@ -1,4 +1,7 @@
-# Append to the existing Caddyfile on the box.
+# Site config for the API. deploy/install.sh writes this to
+# /etc/caddy/conf.d/sip.caddyfile (substituting SIP_DOMAIN) and adds a matching
+# import line to /etc/caddy/Caddyfile.
+#
 # TLS only — Caddy redirects :80 to :443 by default, so there is no plaintext
 # listener to reach the API through.
 

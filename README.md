@@ -67,15 +67,26 @@ Prints every message the parser sees and why it did or didn't count, then exits
 non-zero if order numbers fail to parse, collide, or the total misses
 `--expect`. **Re-run this whenever Panera changes their email template.**
 
-### Deploy
+### Deploy to the droplet
+
+Ubuntu 24.04, $6/mo basic droplet is enough. Point `sip.<domain>` at it first —
+Caddy requests a certificate on first start.
 
 ```sh
-sudo install -d -o sip -g sip -m 0750 /var/lib/sip-ledger
-sudo cp deploy/sip-*.service deploy/sip-poller.timer /etc/systemd/system/
-sudo systemctl enable --now sip-api.service sip-poller.timer
-# append deploy/Caddyfile.snippet to the Caddyfile, then:
-sudo systemctl reload caddy
+git clone https://github.com/rlorenzo/panera-sip-club-tracker.git
+cd panera-sip-club-tracker
+sudo SIP_DOMAIN=sip.rexlorenzo.com ./deploy/install.sh
 ```
+
+Idempotent — re-run after a `git pull` to redeploy; it never overwrites
+`/etc/sip-ledger/env`. Installs Node 24, the `sip` user, deps, both units, the
+timer, Caddy, and the firewall rules, then prints your API token.
+
+Full runbook, sizing, and troubleshooting:
+[docs/deploy-digitalocean.md](docs/deploy-digitalocean.md).
+
+`better-sqlite3` v13 ships prebuilt linux binaries, so nothing compiles on the
+droplet — no `build-essential`, and no OOM on a 1 GB box.
 
 ## API
 
