@@ -1,0 +1,32 @@
+[Unit]
+Description=Sip Ledger API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sip
+Group=sip
+WorkingDirectory=/opt/sip-ledger
+EnvironmentFile=/etc/sip-ledger/env
+ExecStart=/usr/bin/node src/api.js
+Restart=on-failure
+RestartSec=5
+
+# Bound to loopback; Caddy terminates TLS and is the only thing that reaches it.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/sip-ledger
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

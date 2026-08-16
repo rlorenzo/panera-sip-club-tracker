@@ -1,0 +1,32 @@
+# Append to the existing Caddyfile on the box.
+# TLS only — Caddy redirects :80 to :443 by default, so there is no plaintext
+# listener to reach the API through.
+
+sip.rexlorenzo.com {
+	encode zstd gzip
+
+	# The API is single-user; anything that is not the two endpoints below has
+	# no business being routed at all.
+	@sip path /api/sip /api/sip/* /health
+	handle @sip {
+		reverse_proxy 127.0.0.1:8412 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	handle {
+		respond 404
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/sip.log
+		format json
+	}
+}

@@ -1,0 +1,14 @@
+[Unit]
+Description=Poll the mailbox for Sip Club redemptions every 10 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+# Spread the load off exact ten-minute boundaries.
+RandomizedDelaySec=45
+# Catch up after the box was asleep or down rather than skipping the window.
+Persistent=true
+Unit=sip-poller.service
+
+[Install]
+WantedBy=timers.target
